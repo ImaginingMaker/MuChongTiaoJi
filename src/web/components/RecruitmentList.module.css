@@ -5,7 +5,7 @@
 }
 
 .header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   padding: 1.5rem 2rem;
   border-radius: 16px;
@@ -14,16 +14,30 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.headerActions {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.timestamp {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  transition: color 0.3s ease;
 }
 
 .headerTitle {
-  color: #2c3e50 !important;
+  color: var(--text-primary) !important;
   margin: 0 !important;
   font-weight: 700;
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  transition: color 0.3s ease;
 }
 
 .headerTitle :global(.anticon) {
@@ -37,16 +51,22 @@
   font-weight: 600;
   color: #1890ff;
   font-size: 0.875rem;
+  transition: background 0.3s ease;
+}
+
+.statisticsRow {
+  margin-bottom: 2rem;
 }
 
 .filters {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   padding: 1.5rem;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
   margin-bottom: 2rem;
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .searchInput {
@@ -151,12 +171,13 @@
 }
 
 .empty {
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   padding: 3rem 2rem;
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
 }
 
 .empty :global(.ant-empty-description) {
@@ -211,13 +232,13 @@
   justify-content: center;
   margin-top: 2rem;
   padding: 1.5rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   border-radius: 16px;
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid var(--card-border);
   /* Smooth transitions for pagination container / 分页容器的平滑过渡 */
-  transition: all 0.3s ease;
+  transition: all 0.3s ease, background 0.3s ease, border-color 0.3s ease;
 }
 
 .paginationContainer:hover {

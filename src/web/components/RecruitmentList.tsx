@@ -1,14 +1,45 @@
 import React, { useState, useMemo, useCallback, useEffect, useRef, startTransition } from 'react';
-import { Input, Select, Row, Col, Spin, Empty, Typography, Space, Pagination } from 'antd';
-import { SearchOutlined, FilterOutlined, BookOutlined } from '@ant-design/icons';
+import {
+  Input,
+  Select,
+  Row,
+  Col,
+  Empty,
+  Typography,
+  Space,
+  Pagination,
+  Button,
+  Statistic,
+  Dropdown,
+  message,
+  Card as AntCard,
+} from 'antd';
+import {
+  SearchOutlined,
+  FilterOutlined,
+  BookOutlined,
+  ReloadOutlined,
+  DownloadOutlined,
+  SortAscendingOutlined,
+  SortDescendingOutlined,
+  StarOutlined,
+  BarChartOutlined,
+} from '@ant-design/icons';
+import type { MenuProps } from 'antd';
 import RecruitmentCard from './RecruitmentCard';
+import RecruitmentCardSkeleton from './RecruitmentCardSkeleton';
 import { RecruitmentItem } from '../types';
-import sourceData from '../assets/source.json';
+import { loadRecruitmentData, refreshData } from '../utils/dataLoader';
+import { exportToCSV, exportToJSON } from '../utils/export';
+import { getFavoriteItems } from '../utils/favorites';
 import styles from './RecruitmentList.module.css';
 
 const { Search } = Input;
 const { Option } = Select;
 const { Title } = Typography;
+
+type SortField = 'timestamp' | 'school' | 'major' | 'title';
+type SortOrder = 'asc' | 'desc';
 
 /**
  * Recruitment information list component / 招生信息列表组件
@@ -18,14 +49,21 @@ const { Title } = Typography;
  * @returns RecruitmentList component / 招生信息列表组件
  */
 const RecruitmentList: React.FC = () => {
+  const [recruitmentData, setRecruitmentData] = useState<RecruitmentItem[]>([]);
+  const [loading, setLoading] = useState<boolean>(true);
+  const [initialLoading, setInitialLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedTag, setSelectedTag] = useState<string>('all');
   const [selectedSchool, setSelectedSchool] = useState<string>('all');
-  const [loading, setLoading] = useState<boolean>(false);
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState<boolean>(false);
+  const [sortField, setSortField] = useState<SortField>('timestamp');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('desc');
+  const [dataTimestamp, setDataTimestamp] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState<boolean>(false);
 
   // Pagination state variables / 分页状态变量
   const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageSize, setPageSize] = useState<number>(6); // Default 6 items per page / 默认每页6条
+  const [pageSize, setPageSize] = useState<number>(6);
 
   // Add transition state for smooth page changes / 添加过渡状态以实现平滑页面切换
   const [isTransitioning, setIsTransitioning] = useState<boolean>(false);
@@ -35,14 +73,31 @@ const RecruitmentList: React.FC = () => {
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const transitionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Type assertion for imported JSON data
-  // 为导入的JSON数据进行类型断言
-  const recruitmentData = sourceData as RecruitmentItem[];
+  // Load data on mount / 挂载时加载数据
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        setInitialLoading(true);
+        const result = await loadRecruitmentData();
+        setRecruitmentData(result.data);
+        setDataTimestamp(result.timestamp);
+        if (result.fromCache) {
+          message.info('已从缓存加载数据 / Data loaded from cache');
+        }
+      } catch (error) {
+        console.error('Error loading data / 加载数据错误:', error);
+        message.error('加载数据失败，请刷新页面 / Failed to load data, please refresh');
+      } finally {
+        setInitialLoading(false);
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, []);
 
   // Smooth scroll to top function / 平滑滚动到顶部函数
   const scrollToTop = useCallback(() => {
-    // Use requestAnimationFrame for smoother scrolling
-    // 使用 requestAnimationFrame 实现更流畅的滚动
     requestAnimationFrame(() => {
       window.scrollTo({
         top: 0,
@@ -54,25 +109,18 @@ const RecruitmentList: React.FC = () => {
   // Debounced search function / 防抖搜索函数
   const debouncedSearch = useCallback(
     (value: string) => {
-      // Clear existing timeout / 清除现有的超时
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
 
-      // Set loading state immediately for visual feedback
-      // 立即设置加载状态以提供视觉反馈
       setLoading(true);
 
       searchTimeoutRef.current = setTimeout(() => {
-        // Use startTransition for non-urgent updates
-        // 使用 startTransition 处理非紧急更新
         startTransition(() => {
           setSearchTerm(value);
           setCurrentPage(1);
         });
 
-        // Clear loading state after a short delay
-        // 短暂延迟后清除加载状态
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
         }
@@ -83,7 +131,7 @@ const RecruitmentList: React.FC = () => {
             scrollToTop();
           }
         }, 100);
-      }, 300); // 300ms debounce delay / 300ms 防抖延迟
+      }, 300);
     },
     [scrollToTop],
   );
@@ -120,25 +168,48 @@ const RecruitmentList: React.FC = () => {
     };
   }, [recruitmentData]);
 
+  // Calculate statistics / 计算统计信息
+  const statistics = useMemo(() => {
+    const total = recruitmentData.filter((item) => item.ok).length;
+    const byTag = recruitmentData.reduce((acc, item) => {
+      if (item.ok) {
+        acc[item.tag] = (acc[item.tag] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+    const bySchool = recruitmentData.reduce((acc, item) => {
+      if (item.ok) {
+        const school = item.detail.forumMix.school;
+        acc[school] = (acc[school] || 0) + 1;
+      }
+      return acc;
+    }, {} as Record<string, number>);
+
+    return { total, byTag, bySchool, schoolCount: Object.keys(bySchool).length };
+  }, [recruitmentData]);
+
   // Filter and search data based on current state (optimized with useMemo)
   // 根据当前状态过滤和搜索数据（使用 useMemo 优化性能）
   const filteredData = useMemo(() => {
     let filtered = recruitmentData.filter((item) => item.ok);
 
-    // Filter by tag
-    // 按标签过滤
+    // Filter by favorites / 按收藏过滤
+    if (showFavoritesOnly) {
+      const favoriteItems = getFavoriteItems(recruitmentData);
+      filtered = filtered.filter((item) => favoriteItems.some((fav) => fav.id === item.id));
+    }
+
+    // Filter by tag / 按标签过滤
     if (selectedTag !== 'all') {
       filtered = filtered.filter((item) => item.tag === selectedTag);
     }
 
-    // Filter by school
-    // 按学校过滤
+    // Filter by school / 按学校过滤
     if (selectedSchool !== 'all') {
       filtered = filtered.filter((item) => item.detail.forumMix.school === selectedSchool);
     }
 
-    // Search in title, school, and major
-    // 在标题、学校和专业中搜索
+    // Search in title, school, and major / 在标题、学校和专业中搜索
     if (searchTerm) {
       const lowerSearchTerm = searchTerm.toLowerCase();
       filtered = filtered.filter(
@@ -149,8 +220,44 @@ const RecruitmentList: React.FC = () => {
       );
     }
 
-    return filtered.sort((a, b) => b.timestamp - a.timestamp);
-  }, [recruitmentData, searchTerm, selectedTag, selectedSchool]);
+    // Sort data / 排序数据
+    filtered.sort((a, b) => {
+      let aValue: string | number;
+      let bValue: string | number;
+
+      switch (sortField) {
+        case 'timestamp':
+          aValue = a.timestamp;
+          bValue = b.timestamp;
+          break;
+        case 'school':
+          aValue = a.detail.forumMix.school;
+          bValue = b.detail.forumMix.school;
+          break;
+        case 'major':
+          aValue = a.detail.forumMix.major;
+          bValue = b.detail.forumMix.major;
+          break;
+        case 'title':
+          aValue = a.title;
+          bValue = b.title;
+          break;
+        default:
+          aValue = a.timestamp;
+          bValue = b.timestamp;
+      }
+
+      if (typeof aValue === 'string' && typeof bValue === 'string') {
+        return sortOrder === 'asc'
+          ? aValue.localeCompare(bValue, 'zh-CN')
+          : bValue.localeCompare(aValue, 'zh-CN');
+      } else {
+        return sortOrder === 'asc' ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number);
+      }
+    });
+
+    return filtered;
+  }, [recruitmentData, searchTerm, selectedTag, selectedSchool, showFavoritesOnly, sortField, sortOrder]);
 
   // Calculate paginated data (optimized with useMemo)
   // 计算分页数据（使用 useMemo 优化性能）
@@ -175,9 +282,9 @@ const RecruitmentList: React.FC = () => {
     (value: string) => {
       startTransition(() => {
         setSelectedTag(value);
-        setCurrentPage(1); // Reset to first page when filtering / 筛选时重置到第一页
+        setCurrentPage(1);
       });
-      scrollToTop(); // Scroll to top after filtering / 筛选后滚动到顶部
+      scrollToTop();
     },
     [scrollToTop],
   );
@@ -186,17 +293,31 @@ const RecruitmentList: React.FC = () => {
     (value: string) => {
       startTransition(() => {
         setSelectedSchool(value);
-        setCurrentPage(1); // Reset to first page when filtering / 筛选时重置到第一页
+        setCurrentPage(1);
       });
-      scrollToTop(); // Scroll to top after filtering / 筛选后滚动到顶部
+      scrollToTop();
     },
     [scrollToTop],
+  );
+
+  // Handle sort change / 处理排序变化
+  const handleSortChange = useCallback(
+    (field: SortField) => {
+      if (sortField === field) {
+        setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+      } else {
+        setSortField(field);
+        setSortOrder('desc');
+      }
+      setCurrentPage(1);
+      scrollToTop();
+    },
+    [sortField, sortOrder, scrollToTop],
   );
 
   // Reset all filters (optimized with useCallback)
   // 重置所有过滤器（使用 useCallback 优化性能）
   const handleReset = useCallback(() => {
-    // Clear any pending search timeouts / 清除任何待处理的搜索超时
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
     }
@@ -211,54 +332,48 @@ const RecruitmentList: React.FC = () => {
       setSearchTerm('');
       setSelectedTag('all');
       setSelectedSchool('all');
-      setCurrentPage(1); // Reset to first page / 重置到第一页
+      setShowFavoritesOnly(false);
+      setSortField('timestamp');
+      setSortOrder('desc');
+      setCurrentPage(1);
     });
-    setLoading(false); // Clear loading state / 清除加载状态
-    scrollToTop(); // Scroll to top after reset / 重置后滚动到顶部
+    setLoading(false);
+    scrollToTop();
   }, [scrollToTop]);
 
   // Handle pagination change with smooth transitions
   // 处理分页变化并实现平滑过渡
   const handlePageChange = useCallback(
     (page: number, size?: number) => {
-      // Start transition effect immediately / 立即开始过渡效果
       setIsTransitioning(true);
 
-      // Clear any existing transition timeout / 清除现有的过渡超时
       if (transitionTimeoutRef.current) {
         clearTimeout(transitionTimeoutRef.current);
       }
 
-      // Use startTransition for smooth state updates
-      // 使用 startTransition 实现平滑的状态更新
       startTransition(() => {
         if (size && size !== pageSize) {
           setPageSize(size);
-          setCurrentPage(1); // Reset to first page when page size changes / 页面大小改变时重置到第一页
+          setCurrentPage(1);
         } else {
           setCurrentPage(page);
         }
       });
 
-      // Smooth scroll to top immediately, before content changes
-      // 在内容变化前立即开始平滑滚动到顶部
       scrollToTop();
 
-      // End transition effect after content has updated
-      // 内容更新后结束过渡效果
       transitionTimeoutRef.current = setTimeout(() => {
         setIsTransitioning(false);
-      }, 200); // Short delay to allow for smooth transition / 短暂延迟以允许平滑过渡
+      }, 200);
     },
     [pageSize, scrollToTop],
   );
 
   // Handle search input change without triggering immediate search
-  // 处理搜索输入变化但不立即触发搜索（优化用户体验）
+  // 处理搜索输入变化但不立即触发搜索
   const handleSearchInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     if (!value) {
-      // Clear search immediately when input is empty / 输入为空时立即清除搜索
       if (searchTimeoutRef.current) {
         clearTimeout(searchTimeoutRef.current);
       }
@@ -273,16 +388,148 @@ const RecruitmentList: React.FC = () => {
     }
   }, []);
 
+  // Handle refresh / 处理刷新
+  const handleRefresh = useCallback(async () => {
+    try {
+      setRefreshing(true);
+      const result = await refreshData();
+      setRecruitmentData(result.data);
+      setDataTimestamp(result.timestamp);
+      message.success('数据已刷新 / Data refreshed');
+    } catch (error) {
+      console.error('Error refreshing data / 刷新数据错误:', error);
+      message.error('刷新数据失败 / Failed to refresh data');
+    } finally {
+      setRefreshing(false);
+    }
+  }, []);
+
+  // Handle export / 处理导出
+  const handleExport = useCallback(
+    (format: 'csv' | 'json') => {
+      try {
+        if (format === 'csv') {
+          exportToCSV(filteredData, 'muchong_recruitment');
+          message.success('CSV导出成功 / CSV exported successfully');
+        } else {
+          exportToJSON(filteredData, 'muchong_recruitment');
+          message.success('JSON导出成功 / JSON exported successfully');
+        }
+      } catch (error) {
+        console.error('Error exporting / 导出错误:', error);
+        message.error('导出失败 / Export failed');
+      }
+    },
+    [filteredData],
+  );
+
+  // Export menu items / 导出菜单项
+  const exportMenuItems: MenuProps['items'] = [
+    {
+      key: 'csv',
+      label: '导出为 CSV',
+      icon: <DownloadOutlined />,
+      onClick: () => handleExport('csv'),
+    },
+    {
+      key: 'json',
+      label: '导出为 JSON',
+      icon: <DownloadOutlined />,
+      onClick: () => handleExport('json'),
+    },
+  ];
+
+  // Sort menu items / 排序菜单项
+  const sortMenuItems: MenuProps['items'] = [
+    {
+      key: 'timestamp',
+      label: '按时间排序',
+      icon: sortField === 'timestamp' ? (sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />) : null,
+      onClick: () => handleSortChange('timestamp'),
+    },
+    {
+      key: 'school',
+      label: '按学校排序',
+      icon: sortField === 'school' ? (sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />) : null,
+      onClick: () => handleSortChange('school'),
+    },
+    {
+      key: 'major',
+      label: '按专业排序',
+      icon: sortField === 'major' ? (sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />) : null,
+      onClick: () => handleSortChange('major'),
+    },
+    {
+      key: 'title',
+      label: '按标题排序',
+      icon: sortField === 'title' ? (sortOrder === 'asc' ? <SortAscendingOutlined /> : <SortDescendingOutlined />) : null,
+      onClick: () => handleSortChange('title'),
+    },
+  ];
+
+  // Format timestamp / 格式化时间戳
+  const formattedTimestamp = useMemo(() => {
+    if (!dataTimestamp) return null;
+    return new Date(dataTimestamp).toLocaleString('zh-CN', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  }, [dataTimestamp]);
+
   return (
     <div className={styles.container}>
       <div className={styles.header}>
         <Title level={2} className={styles.headerTitle}>
           <BookOutlined /> 最新招生信息
         </Title>
-        <div className={styles.stats}>
-          <span>共找到 {filteredData.length} 条招生信息</span>
+        <div className={styles.headerActions}>
+          <Space>
+            <div className={styles.stats}>
+              <span>共找到 {filteredData.length} 条招生信息</span>
+            </div>
+            {formattedTimestamp && (
+              <div className={styles.timestamp}>
+                <span>更新时间: {formattedTimestamp}</span>
+              </div>
+            )}
+          </Space>
         </div>
       </div>
+
+      {/* Statistics Cards / 统计卡片 */}
+      <Row gutter={[16, 16]} className={styles.statisticsRow}>
+        <Col xs={24} sm={12} md={6}>
+          <AntCard>
+            <Statistic title="总信息数" value={statistics.total} prefix={<BookOutlined />} />
+          </AntCard>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <AntCard>
+            <Statistic title="学校数量" value={statistics.schoolCount} prefix={<BarChartOutlined />} />
+          </AntCard>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <AntCard>
+            <Statistic
+              title="博士招生"
+              value={statistics.byTag['博士招生'] || 0}
+              valueStyle={{ color: '#722ed1' }}
+            />
+          </AntCard>
+        </Col>
+        <Col xs={24} sm={12} md={6}>
+          <AntCard>
+            <Statistic
+              title="硕士招生"
+              value={statistics.byTag['硕士招生'] || 0}
+              valueStyle={{ color: '#1890ff' }}
+            />
+          </AntCard>
+        </Col>
+      </Row>
 
       <div className={styles.filters}>
         <Row gutter={[16, 16]} align="middle">
@@ -295,11 +542,11 @@ const RecruitmentList: React.FC = () => {
               onSearch={handleSearch}
               onChange={handleSearchInputChange}
               className={styles.searchInput}
-              loading={loading} // Show loading state in search input / 在搜索输入框中显示加载状态
+              loading={loading}
             />
           </Col>
 
-          <Col xs={12} sm={12} md={4} lg={4}>
+          <Col xs={12} sm={12} md={3} lg={3}>
             <Select
               value={selectedTag}
               onChange={handleTagChange}
@@ -316,7 +563,7 @@ const RecruitmentList: React.FC = () => {
             </Select>
           </Col>
 
-          <Col xs={12} sm={12} md={6} lg={6}>
+          <Col xs={12} sm={12} md={4} lg={4}>
             <Select
               value={selectedSchool}
               onChange={handleSchoolChange}
@@ -335,8 +582,37 @@ const RecruitmentList: React.FC = () => {
             </Select>
           </Col>
 
-          <Col xs={24} sm={24} md={6} lg={6}>
-            <Space>
+          <Col xs={24} sm={24} md={9} lg={9}>
+            <Space wrap>
+              <Button
+                type={showFavoritesOnly ? 'primary' : 'default'}
+                icon={<StarOutlined />}
+                onClick={() => {
+                  setShowFavoritesOnly(!showFavoritesOnly);
+                  setCurrentPage(1);
+                }}
+                size="large"
+              >
+                {showFavoritesOnly ? '显示全部' : '仅收藏'}
+              </Button>
+              <Dropdown menu={{ items: sortMenuItems }} trigger={['click']}>
+                <Button size="large" icon={<SortDescendingOutlined />}>
+                  排序
+                </Button>
+              </Dropdown>
+              <Dropdown menu={{ items: exportMenuItems }} trigger={['click']}>
+                <Button size="large" icon={<DownloadOutlined />}>
+                  导出
+                </Button>
+              </Dropdown>
+              <Button
+                size="large"
+                icon={<ReloadOutlined />}
+                onClick={handleRefresh}
+                loading={refreshing}
+              >
+                刷新
+              </Button>
               <button onClick={handleReset} className={styles.resetButton}>
                 重置筛选
               </button>
@@ -350,41 +626,49 @@ const RecruitmentList: React.FC = () => {
           isTransitioning ? styles.transitioning : ''
         }`}
       >
-        <Spin spinning={loading} size="large" tip="加载中...">
-          {filteredData.length > 0 ? (
-            <>
-              <div className={styles.cardsContainer}>
-                <Row gutter={[24, 24]} key={`page-${currentPage}-${pageSize}`}>
-                  {paginatedData.map((item) => (
-                    <Col key={item.id} xs={24} lg={12} xl={12}>
-                      <RecruitmentCard item={item} />
-                    </Col>
-                  ))}
-                </Row>
-              </div>
+        {initialLoading ? (
+          <div className={styles.cardsContainer}>
+            <Row gutter={[24, 24]}>
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Col key={i} xs={24} lg={12} xl={12}>
+                  <RecruitmentCardSkeleton />
+                </Col>
+              ))}
+            </Row>
+          </div>
+        ) : filteredData.length > 0 ? (
+          <>
+            <div className={styles.cardsContainer}>
+              <Row gutter={[24, 24]} key={`page-${currentPage}-${pageSize}`}>
+                {paginatedData.map((item) => (
+                  <Col key={item.id} xs={24} lg={12} xl={12}>
+                    <RecruitmentCard item={item} />
+                  </Col>
+                ))}
+              </Row>
+            </div>
 
-              {/* Pagination component with optimized performance / 性能优化的分页组件 */}
-              <div className={styles.paginationContainer}>
-                <Pagination
-                  current={currentPage}
-                  total={filteredData.length}
-                  pageSize={pageSize}
-                  showSizeChanger
-                  showQuickJumper
-                  showTotal={(total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条数据`}
-                  pageSizeOptions={['6', '12', '24', '48']}
-                  onChange={handlePageChange}
-                  onShowSizeChange={handlePageChange}
-                  className={styles.pagination}
-                  hideOnSinglePage={false} // Always show pagination for consistency / 始终显示分页以保持一致性
-                  disabled={loading || isTransitioning} // Disable pagination during loading or transition / 加载或过渡期间禁用分页
-                />
-              </div>
-            </>
-          ) : (
-            <Empty description="暂无符合条件的招生信息" className={styles.empty} />
-          )}
-        </Spin>
+            {/* Pagination component with optimized performance / 性能优化的分页组件 */}
+            <div className={styles.paginationContainer}>
+              <Pagination
+                current={currentPage}
+                total={filteredData.length}
+                pageSize={pageSize}
+                showSizeChanger
+                showQuickJumper
+                showTotal={(total, range) => `第 ${range[0]}-${range[1]} 条，共 ${total} 条数据`}
+                pageSizeOptions={['6', '12', '24', '48']}
+                onChange={handlePageChange}
+                onShowSizeChange={handlePageChange}
+                className={styles.pagination}
+                hideOnSinglePage={false}
+                disabled={loading || isTransitioning}
+              />
+            </div>
+          </>
+        ) : (
+          <Empty description="暂无符合条件的招生信息" className={styles.empty} />
+        )}
       </div>
     </div>
   );

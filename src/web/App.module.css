@@ -1,33 +1,44 @@
 .app {
   min-height: 100vh;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   padding: 0;
   margin: 0;
+  transition: background 0.3s ease;
 }
 
 .header {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--card-bg);
   backdrop-filter: blur(10px);
   padding: 2rem 0;
   text-align: center;
   box-shadow: 0 2px 20px rgba(0, 0, 0, 0.1);
   margin-bottom: 2rem;
+  position: relative;
+  transition: background 0.3s ease;
 }
 
 .title {
   font-size: 2.5rem;
   font-weight: 700;
-  color: #2c3e50;
+  color: var(--text-primary);
   margin: 0 0 0.5rem 0;
   text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+  transition: color 0.3s ease;
 }
 
 .subtitle {
   font-size: 1.1rem;
-  color: #7f8c8d;
+  color: var(--text-secondary);
   margin: 0;
   font-weight: 400;
   letter-spacing: 1px;
+  transition: color 0.3s ease;
+}
+
+.themeToggle {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
 }
 
 .main {

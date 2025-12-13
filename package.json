@@ -1,10 +1,10 @@
 {
   "name": "muchongnodejs",
   "version": "1.0.0",
-  "main": "dist/index.js",
+  "main": "dist/crawler/index.js",
   "scripts": {
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "node dist/crawler/index.js",
     "dev": "npx ts-node src/crawler/index",
     "build:web": "vite build",
     "dev:web": "vite",
@@ -17,13 +17,17 @@
   "dependencies": {
     "@ant-design/icons": "^6.0.0",
     "@imaginerlabs/user-agent-generator": "^1.0.1",
+    "@types/papaparse": "^5.5.2",
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
+    "@types/react-window": "^1.8.8",
     "antd": "^5.25.4",
     "axios": "^1.9.0",
     "cheerio": "^1.0.0",
+    "papaparse": "^5.5.3",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "react-window": "^2.2.3"
   },
   "devDependencies": {
     "@types/cheerio": "^0.22.35",

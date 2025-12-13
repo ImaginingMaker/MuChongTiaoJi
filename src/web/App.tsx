@@ -1,6 +1,9 @@
 import React from 'react';
 import { ConfigProvider } from 'antd';
 import zhCN from 'antd/es/locale/zh_CN';
+import { ThemeProvider } from './contexts/ThemeContext';
+import ErrorBoundary from './components/ErrorBoundary';
+import ThemeToggle from './components/ThemeToggle';
 import RecruitmentList from './components/RecruitmentList';
 import styles from './App.module.css';
 
@@ -10,16 +13,21 @@ import styles from './App.module.css';
  */
 const App: React.FC = () => {
   return (
-    <ConfigProvider locale={zhCN}>
-      <div className={styles.app}>
-        <header className={styles.header}>
-          <h1 className={styles.title}>小木虫调剂信息平台</h1>
-        </header>
-        <main className={styles.main}>
-          <RecruitmentList />
-        </main>
-      </div>
-    </ConfigProvider>
+    <ErrorBoundary>
+      <ThemeProvider>
+        <ConfigProvider locale={zhCN}>
+          <div className={styles.app}>
+            <header className={styles.header}>
+              <ThemeToggle />
+              <h1 className={styles.title}>小木虫调剂信息平台</h1>
+            </header>
+            <main className={styles.main}>
+              <RecruitmentList />
+            </main>
+          </div>
+        </ConfigProvider>
+      </ThemeProvider>
+    </ErrorBoundary>
   );
 };
 

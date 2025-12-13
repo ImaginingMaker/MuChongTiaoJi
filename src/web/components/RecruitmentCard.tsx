@@ -1,4 +1,4 @@
-import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback, useState, useEffect } from 'react';
 import { Card, Tag, Typography, Divider, Button } from 'antd';
 import {
   CalendarOutlined,
@@ -7,8 +7,11 @@ import {
   TeamOutlined,
   ExclamationCircleOutlined,
   LinkOutlined,
+  StarOutlined,
+  StarFilled,
 } from '@ant-design/icons';
 import { RecruitmentItem } from '../types';
+import { isFavorite, toggleFavorite } from '../utils/favorites';
 import styles from './RecruitmentCard.module.css';
 
 const { Title, Text, Paragraph } = Typography;
@@ -26,6 +29,13 @@ interface RecruitmentCardProps {
  * @returns RecruitmentCard component / 招生信息卡片组件
  */
 const RecruitmentCard: React.FC<RecruitmentCardProps> = memo(({ item }) => {
+  const [favorited, setFavorited] = useState<boolean>(false);
+
+  // Check favorite status on mount / 挂载时检查收藏状态
+  useEffect(() => {
+    setFavorited(isFavorite(item.id));
+  }, [item.id]);
+
   // Format timestamp to readable date (memoized)
   // 将时间戳格式化为可读日期（缓存）
   const formattedDate = React.useMemo(() => {
@@ -63,6 +73,13 @@ const RecruitmentCard: React.FC<RecruitmentCardProps> = memo(({ item }) => {
     window.open(item.url, '_blank');
   }, [item.url]);
 
+  // Handle favorite toggle (memoized callback)
+  // 处理收藏切换（缓存回调）
+  const handleToggleFavorite = useCallback(() => {
+    const newStatus = toggleFavorite(item.id);
+    setFavorited(newStatus);
+  }, [item.id]);
+
   const { detail } = item;
 
   return (
@@ -70,6 +87,15 @@ const RecruitmentCard: React.FC<RecruitmentCardProps> = memo(({ item }) => {
       className={styles.card}
       hoverable
       actions={[
+        <Button
+          key="favorite"
+          type={favorited ? 'default' : 'default'}
+          icon={favorited ? <StarFilled /> : <StarOutlined />}
+          onClick={handleToggleFavorite}
+          style={{ color: favorited ? '#faad14' : undefined }}
+        >
+          {favorited ? '已收藏' : '收藏'}
+        </Button>,
         <Button
           key="view-original"
           type="primary"

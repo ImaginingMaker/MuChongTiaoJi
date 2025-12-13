@@ -3,6 +3,31 @@
  * 全局样式和 Ant Design 自定义
  */
 
+/* CSS Variables for Theme / 主题CSS变量 */
+:root {
+  --bg-gradient-start: #667eea;
+  --bg-gradient-end: #764ba2;
+  --card-bg: rgba(255, 255, 255, 0.95);
+  --card-border: rgba(255, 255, 255, 0.18);
+  --text-primary: #2c3e50;
+  --text-secondary: #7f8c8d;
+  --scrollbar-track: #f1f1f1;
+  --scrollbar-thumb: #c0c0c0;
+  --scrollbar-thumb-hover: #a0a0a0;
+}
+
+[data-theme='dark'] {
+  --bg-gradient-start: #3a4556;
+  --bg-gradient-end: #4a5568;
+  --card-bg: rgba(45, 55, 72, 0.95);
+  --card-border: rgba(255, 255, 255, 0.15);
+  --text-primary: #e2e8f0;
+  --text-secondary: #cbd5e0;
+  --scrollbar-track: #4a5568;
+  --scrollbar-thumb: #718096;
+  --scrollbar-thumb-hover: #a0aec0;
+}
+
 /* Global reset / 全局重置 */
 * {
   box-sizing: border-box;
@@ -16,9 +41,11 @@ body {
     'Segue UI Emoji', 'Segue UI Symbol';
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
   min-height: 100vh;
   overflow-x: hidden;
+  color: var(--text-primary);
+  transition: background 0.3s ease, color 0.3s ease;
 }
 
 #root {
@@ -78,17 +105,17 @@ body {
 }
 
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: var(--scrollbar-track);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #c0c0c0;
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #a0a0a0;
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Animation keyframes / 动画关键帧 */
