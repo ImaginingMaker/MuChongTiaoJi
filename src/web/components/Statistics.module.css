@@ -1,0 +1,16 @@
+.statisticsRow {
+  margin-bottom: 16px;
+}
+
+.statisticsRow :global(.ant-card) {
+  border-radius: 8px;
+}
+
+.statisticsRow :global(.ant-statistic-title) {
+  font-size: 14px;
+  color: var(--text-secondary, #666);
+}
+
+.statisticsRow :global(.ant-statistic-content) {
+  font-size: 24px;
+}

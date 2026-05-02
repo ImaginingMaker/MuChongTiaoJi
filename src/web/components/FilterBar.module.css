@@ -1,0 +1,48 @@
+.filters {
+  background: var(--card-bg, #fff);
+  padding: 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 200px;
+  max-width: 400px;
+}
+
+.filterSelect {
+  min-width: 120px;
+}
+
+.actionButtons {
+  margin-left: auto;
+}
+
+@media (max-width: 768px) {
+  .filterRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .searchInput {
+    max-width: none;
+  }
+
+  .filterSelect {
+    width: 100%;
+  }
+
+  .actionButtons {
+    margin-left: 0;
+    justify-content: center;
+  }
+}

@@ -1,13 +1,20 @@
-const { generateUserAgent } = require('@imaginerlabs/user-agent-generator');
+/**
+ * Crawler configuration / 爬虫配置
+ */
 
-const INDEX_URL = 'https://muchong.com/f-430-1-threadtype-11';
+import { generateUserAgent } from '@imaginerlabs/user-agent-generator';
 
-const UA_POOL_SIZE = 100;
+export const INDEX_URL = 'https://muchong.com/f-430-1-threadtype-11';
 
-const UA_POOL = generateUserAgent({
+export const UA_POOL_SIZE = 100;
+
+export const UA_POOL: string[] = (generateUserAgent({
   browser: 'chrome',
   device: 'mac',
   count: UA_POOL_SIZE,
-});
+}) as unknown) as string[];
 
-export { INDEX_URL, UA_POOL };
+export const CRAWLER_CONFIG = {
+  concurrency: 5,
+  maxRecords: 1000,
+} as const;
